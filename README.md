@@ -27,21 +27,21 @@ See a complete sketch in `examples/BasicUsage/BasicUsage.ino`.
 
 ## Page model (`BaseDisplayPage`)
 Implement the following in your page class:
-- `uint8_t getPageId() const` – Return the Nextion page id (as configured in the HMI editor).
-- `void begin()` – Initialize widgets or send initial commands.
-- `void refresh()` – Periodic UI updates (called every `RefreshTime`).
+- `uint8_t getPageId() const` â€“ Return the Nextion page id (as configured in the HMI editor).
+- `void begin()` â€“ Initialize widgets or send initial commands.
+- `void refresh()` â€“ Periodic UI updates (called every `RefreshTime`).
 
 Optional handlers you can override:
-- `handleTouch(uint8_t compId, uint8_t eventType)` – Component touch press/release.
-- `handleTouchXY(uint16_t x, uint16_t y, uint8_t eventType)` – Raw XY touch events (if enabled on HMI).
-- `handleText(String text)` – Text return values.
-- `handleNumeric(uint32_t value)` – Numeric return values.
-- `handleCommandResponse(uint8_t responseCode)` / `handleErrorCommandResponse(uint8_t responseCode)` – Command ack/error codes.
-- `handleSleepChange(bool entering)` – Sleep/wake notifications.
-- `handleExternalUpdate(uint8_t updateType, const void* data)` – Push domain updates from your app (see `docs/ExternalUpdatePattern.md`).
+- `handleTouch(uint8_t compId, uint8_t eventType)` â€“ Component touch press/release.
+- `handleTouchXY(uint16_t x, uint16_t y, uint8_t eventType)` â€“ Raw XY touch events (if enabled on HMI).
+- `handleText(String text)` â€“ Text return values.
+- `handleNumeric(uint32_t value)` â€“ Numeric return values.
+- `handleCommandResponse(uint8_t responseCode)` / `handleErrorCommandResponse(uint8_t responseCode)` â€“ Command ack/error codes.
+- `handleSleepChange(bool entering)` â€“ Sleep/wake notifications.
+- `handleExternalUpdate(uint8_t updateType, const void* data)` â€“ Push domain updates from your app (see `docs/ExternalUpdatePattern.md`).
 
 Helpers for sending commands:
-- `sendCommand(const String& cmd)` – Sends raw command plus 0xFF 0xFF 0xFF terminators.
+- `sendCommand(const String& cmd)` â€“ Sends raw command plus 0xFF 0xFF 0xFF terminators.
 - `sendText(component, text)`, `sendValue(component, value)`, `setPicture(component, id)`, etc.
 
 ## Controller (`NextionControl`)
@@ -49,17 +49,17 @@ Constructor:
 - `NextionControl(Stream* serial, BaseDisplayPage** pages, size_t count)`
 
 Main API:
-- `bool begin()` – Initializes the display and first page.
-- `void update(unsigned long now)` – Call frequently to process serial and refresh pages.
-- `void sendCommand(const String& cmd)` – Send a raw command.
-- `void refreshCurrentPage()` – Force an immediate page refresh.
-- `BaseDisplayPage* getCurrentPage() const` – Access current page.
+- `bool begin()` â€“ Initializes the display and first page.
+- `void update(unsigned long now)` â€“ Call frequently to process serial and refresh pages.
+- `void sendCommand(const String& cmd)` â€“ Send a raw command.
+- `void refreshCurrentPage()` â€“ Force an immediate page refresh.
+- `BaseDisplayPage* getCurrentPage() const` â€“ Access current page.
 
 Constants:
-- `RefreshTime` – Interval between `refresh()` calls (ms).
-- `SerialBufferSize` – Input buffer size.
-- `SerialTimeout` – Timeout to discard stalled partial messages.
-- `EventPress`, `EventRelease` – Touch event codes.
+- `RefreshTime` â€“ Interval between `refresh()` calls (ms).
+- `SerialBufferSize` â€“ Input buffer size.
+- `SerialTimeout` â€“ Timeout to discard stalled partial messages.
+- `EventPress`, `EventRelease` â€“ Touch event codes.
 
 ## Nextion HMI notes
 - Ensure components use consistent ids with your page code.
@@ -67,7 +67,8 @@ Constants:
 - For text/numeric responses, use `print`/`printh`/`get` commands as appropriate.
 
 ## Example
-See `examples/BasicUsage/BasicUsage.ino` for a minimal compile-ready sketch showing one page.
+- See `examples/BasicUsage/BasicUsage.ino` for a minimal compile-ready sketch showing one page.
+- See [SmartFuseBox](https://github.com/k3ldar/SmartFuseBox) for a real world (in progress) example.
 
 ## Troubleshooting
 - No response: check wiring, baud rate, and that `update(millis())` runs frequently.
@@ -75,4 +76,4 @@ See `examples/BasicUsage/BasicUsage.ino` for a minimal compile-ready sketch show
 - No touch events: enable `Send Component ID` in HMI for affected components.
 
 ## License
-Add your preferred license here.
+[GPL-3](https://github.com/k3ldar/NextionControl/tree/main?tab=GPL-3.0-1-ov-file#readme)

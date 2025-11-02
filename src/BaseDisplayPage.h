@@ -76,9 +76,18 @@ public:
         (void)data;
         // Default: do nothing - keeps base class generic
     }
+    
+    /**
+     * @brief Check if this page is currently active (displayed on Nextion).
+     * @return true if this page is the currently active page, false otherwise
+     */
+    bool isActive() const { return _isActive; }
 
 protected:
-    explicit BaseDisplayPage(Stream* serialPort) : nextionSerialPort(serialPort) {}
+    explicit BaseDisplayPage(Stream* serialPort) 
+        : nextionSerialPort(serialPort), 
+          _initialized(false),
+          _isActive(false) {}
 
     // Return the page identifier
     virtual uint8_t getPageId() const = 0;
@@ -131,6 +140,16 @@ protected:
         if (!nextionSerialPort)
             return;
 
+        // Only send commands if this page is currently active
+        if (!_isActive) {
+#ifdef NEXTION_DEBUG
+            Serial.print("Page ");
+            Serial.print(getPageId());
+            Serial.println(" ignoring command (not active): " + cmd);
+#endif
+            return;
+        }
+
         nextionSerialPort->print(cmd);
         nextionSerialPort->write(0xFF);
         nextionSerialPort->write(0xFF);
@@ -146,6 +165,18 @@ protected:
     }
 
     // Wrappers for common properties
+    void setPage(const uint8_t pageId) {
+        if (!nextionSerialPort)
+            return;
+        
+        // Always allow page change commands regardless of active state
+        String cmd = "page " + String(pageId);
+        nextionSerialPort->print(cmd);
+        nextionSerialPort->write(0xFF);
+        nextionSerialPort->write(0xFF);
+        nextionSerialPort->write(0xFF);
+	}
+
     void setPicture(const String& component, int pictureId) {
         setComponentProperty(component, "pic", pictureId);
     }
@@ -178,4 +209,8 @@ protected:
 
 private:
     Stream* nextionSerialPort;
+    bool _initialized;  // Track if begin() has been called for this page
+    bool _isActive;     // Track if this page is currently displayed on Nextion
+    
+    friend class NextionControl;  // Allow NextionControl to access _initialized and _isActive
 };

@@ -3,7 +3,7 @@
 // Adjust serial port as needed (e.g., Serial1/Serial2) and baud rate.
 
 #include <Arduino.h>
-#include "NextionControl.h"
+#include <NextionControl.h>
 #include "BaseDisplayPage.h"
 
 // Simple page showing time since boot in seconds on a Nextion text component t0

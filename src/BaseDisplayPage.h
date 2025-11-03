@@ -4,12 +4,27 @@
 class NextionControl;
 
 
-// Abstract base class for a display page
+/**
+ * @class BaseDisplayPage
+ * @brief Abstract base class for a display page on a Nextion display.
+ *
+ * This class provides the foundation for creating custom display pages with
+ * lifecycle management, event handling, and communication with the Nextion display.
+ * Derived classes implement page-specific behavior by overriding virtual methods.
+ *
+ * Key features:
+ * - Lifecycle hooks: onEnterPage() and onLeavePage() for state management
+ * - Event handlers: touch, text, numeric, sleep, and coordinate events
+ * - Helper methods for sending commands and updating UI components
+ * - Automatic active state tracking via NextionControl
+ */
 class BaseDisplayPage {
 	friend class NextionControl;
 
 public:
-    // Destructor (virtual to allow proper cleanup in derived classes)
+    /**
+     * @brief Destructor (virtual to allow proper cleanup in derived classes)
+     */
     virtual ~BaseDisplayPage() {}
 
     /**
@@ -84,58 +99,188 @@ public:
     bool isActive() const { return _isActive; }
 
 protected:
+    /**
+     * @brief Construct a display page.
+     * @param serialPort Pointer to the Stream connected to the Nextion display.
+     *                   Must remain valid for the lifetime of this page.
+     */
     explicit BaseDisplayPage(Stream* serialPort) 
         : nextionSerialPort(serialPort), 
           _initialized(false),
           _isActive(false) {}
 
-    // Return the page identifier
+    /**
+     * @brief Get the unique page identifier matching the Nextion HMI page ID.
+     * @return Page ID (0-255) corresponding to the page number in the Nextion Editor.
+     * @note Must be implemented by derived classes to return their page ID.
+     */
     virtual uint8_t getPageId() const = 0;
 
-    // Refresh the page contents (called periodically)
-    virtual void refresh() = 0;
+    /**
+     * @brief Called when this page becomes the active page.
+     * 
+     * This lifecycle hook is invoked by NextionControl when the page is activated.
+     * Override to perform setup tasks such as:
+     * - Restoring cached state or scroll positions
+     * - Refreshing UI elements with current data
+     * - Starting timers or animations
+     * - Initializing page-specific resources
+     * 
+     * @note The _isActive flag is automatically managed by NextionControl.
+     * @note This is called after begin() on first activation, or directly on subsequent activations.
+     */
+    virtual void onEnterPage() {
+        // Default: do nothing
+    }
 
-    // Initialization if any
+    /**
+     * @brief Called when this page is about to be deactivated.
+     * 
+     * This lifecycle hook is invoked by NextionControl before switching to another page.
+     * Override to perform cleanup tasks such as:
+     * - Saving page state or user input
+     * - Caching data to avoid re-fetching
+     * - Stopping timers or animations
+     * - Releasing page-specific resources
+     * 
+     * @note The _isActive flag is automatically managed by NextionControl.
+     * @note Sending commands to Nextion components in this method may fail as the page is being deactivated.
+     */
+    virtual void onLeavePage() {
+        // Default: do nothing
+    }
+
+    /**
+     * @brief Refresh the page contents (called periodically by NextionControl).
+     * 
+     * Override to update dynamic content such as:
+     * - Real-time sensor readings
+     * - Clock/timer displays
+     * - Status indicators
+     * - Progress bars or gauges
+     * 
+     * @note Called at intervals defined by NextionControl::RefreshTime (default 1000ms).
+     * @note Only called when this page is active.
+     * @note Must be implemented by derived classes.
+     */
+    virtual void refresh(unsigned long now) = 0;
+
+    /**
+     * @brief Initialize the page (called once before first use).
+     * 
+     * Override to perform one-time initialization such as:
+     * - Setting default component states
+     * - Loading configuration
+     * - Initializing internal data structures
+     * 
+     * @note Called automatically by NextionControl before first page activation.
+     * @note Called only once per page lifetime.
+     * @note Must be implemented by derived classes.
+     */
     virtual void begin() = 0;
 
-    // Touch events
+    /**
+     * @brief Handle touch events from Nextion components.
+     * 
+     * Called when a component with a send component ID event is touched.
+     * 
+     * @param compId Component ID (set in Nextion Editor properties)
+     * @param eventType Event type: 0x01 = press, 0x00 = release
+     * @note Default implementation does nothing. Override to handle touch events.
+     */
     virtual void handleTouch(uint8_t compId, uint8_t eventType) {
         (void)compId;
         (void)eventType;
     }
 
+    /**
+     * @brief Handle text return values from Nextion.
+     * 
+     * Called when a component sends text data (e.g., via get command or text input).
+     * 
+     * @param text The text string returned from the Nextion display
+     * @note Default implementation does nothing. Override to handle text data.
+     */
     virtual void handleText(String text) {
         (void)text;
     }
 
-    // Handle command execution responses
+    /**
+     * @brief Handle successful command execution responses.
+     * 
+     * Called when Nextion returns a success code (0x01) for a command.
+     * 
+     * @param responseCode Response code from Nextion (typically 0x01)
+     * @note Default implementation does nothing. Override to track command success.
+     */
     virtual void handleCommandResponse(uint8_t responseCode) {
         (void)responseCode;
     }
 
-    // Handle command execution responses
+    /**
+     * @brief Handle command execution error responses.
+     * 
+     * Called when Nextion returns an error code for a failed command.
+     * 
+     * @param responseCode Error code: 0x00 = invalid instruction, 0x02 = invalid component ID,
+     *                     0x03 = invalid page ID, 0x04 = invalid picture ID,
+     *                     0x1A = invalid variable, 0x1B = invalid operation, 0x1C = assignment failed
+     * @note Default implementation does nothing. Override to handle errors.
+     */
     virtual void handleErrorCommandResponse(uint8_t responseCode) {
         (void)responseCode;
     }
 
-    // Handle XY touch coordinates
+    /**
+     * @brief Handle touch coordinate events.
+     * 
+     * Called when coordinate send is enabled and user touches the screen.
+     * 
+     * @param x X coordinate of touch (pixels)
+     * @param y Y coordinate of touch (pixels)
+     * @param eventType Event type: 0x67 = awake touch, 0x68 = sleep touch
+     * @note Default implementation does nothing. Override for coordinate-based input.
+     */
     virtual void handleTouchXY(uint16_t x, uint16_t y, uint8_t eventType) {
         (void)x;
         (void)y;
         (void)eventType;
     }
 
-    // Handle numeric return values
+    /**
+     * @brief Handle numeric return values from Nextion.
+     * 
+     * Called when a component sends numeric data (e.g., via get command).
+     * 
+     * @param value The 32-bit numeric value returned from the Nextion display
+     * @note Default implementation does nothing. Override to handle numeric data.
+     */
     virtual void handleNumeric(uint32_t value) {
         (void)value;
     }
 
-    // Handle sleep mode changes
+    /**
+     * @brief Handle sleep mode state changes.
+     * 
+     * Called when Nextion enters or exits auto-sleep mode.
+     * 
+     * @param entering true if entering sleep mode, false if waking from sleep
+     * @note Default implementation does nothing. Override to respond to sleep events.
+     */
     virtual void handleSleepChange(bool entering) {
         (void)entering;
     }
 
-    // Helper for sending commands to the Nextion
+    /**
+     * @brief Send a raw command to the Nextion display.
+     * 
+     * Automatically appends the required 0xFF 0xFF 0xFF terminator sequence.
+     * Commands are only sent if this page is currently active.
+     * 
+     * @param cmd Command string (e.g., "t0.txt=\"Hello\"", "n0.val=42")
+     * @note Commands sent from inactive pages are ignored (with debug warning).
+     * @note Use setPage() if you need to send page change commands from inactive pages.
+     */
     void sendCommand(const String& cmd) {
         if (!nextionSerialPort)
             return;
@@ -156,7 +301,16 @@ protected:
         nextionSerialPort->write(0xFF);
     }
 
-    // Centralized command sender for property assignment
+    /**
+     * @brief Set a property value on a Nextion component.
+     * 
+     * Convenience method for setting numeric component properties.
+     * 
+     * @param component Component name (e.g., "b0", "t1")
+     * @param property Property name (e.g., "val", "pic", "font")
+     * @param value Numeric value to assign
+     * @note Only sends if page is active.
+     */
     void setComponentProperty(const String& component, const String& property, int value) {
         if (!nextionSerialPort)
             return;
@@ -164,7 +318,15 @@ protected:
         sendCommand(cmd);
     }
 
-    // Wrappers for common properties
+    /**
+     * @brief Switch to a different page on the Nextion display.
+     * 
+     * Sends a page change command to the display.
+     * 
+     * @param pageId Target page ID (0-255) to switch to
+     * @note Unlike other commands, page changes are allowed from any page (active or not).
+     * @note This bypasses the normal _isActive check to allow page navigation.
+     */
     void setPage(const uint8_t pageId) {
         if (!nextionSerialPort)
             return;
@@ -177,19 +339,45 @@ protected:
         nextionSerialPort->write(0xFF);
 	}
 
+    /**
+     * @brief Set the primary picture attribute of a component.
+     * 
+     * @param component Component name (e.g., "p0" for a picture box)
+     * @param pictureId Picture resource ID from Nextion Editor
+     */
     void setPicture(const String& component, int pictureId) {
         setComponentProperty(component, "pic", pictureId);
     }
 
+    /**
+     * @brief Set the secondary picture attribute of a component (e.g., button pressed state).
+     * 
+     * @param component Component name
+     * @param pictureId Picture resource ID from Nextion Editor
+     */
     void setPicture2(const String& component, int pictureId) {
         setComponentProperty(component, "pic2", pictureId);
     }
 
+    /**
+     * @brief Set the font attribute of a text component.
+     * 
+     * @param component Component name (e.g., "t0" for a text field)
+     * @param fontId Font resource ID from Nextion Editor
+     */
     void setFont(const String& component, int fontId) {
         setComponentProperty(component, "font", fontId);
     }
 
-    // Optional helper: send numeric assignment, common in Nextion pages
+    /**
+     * @brief Set a numeric value on a component.
+     * 
+     * Convenience method for setting the value attribute (typically used with
+     * number components, sliders, progress bars, etc.).
+     * 
+     * @param component Component name
+     * @param value Numeric value to assign
+     */
     void sendValue(const String& component, int value) {
         if (!nextionSerialPort)
             return;
@@ -198,7 +386,15 @@ protected:
         sendCommand(cmd);
     }
 
-    // Optional helper: set text field
+    /**
+     * @brief Set the text attribute of a component.
+     * 
+     * Convenience method for updating text in text fields, buttons, etc.
+     * 
+     * @param component Component name (e.g., "t0")
+     * @param text Text string to display
+     * @note Text is automatically quoted in the command.
+     */
     void sendText(const String& component, const String& text) {
         if (!nextionSerialPort)
             return;
@@ -209,8 +405,9 @@ protected:
 
 private:
     Stream* nextionSerialPort;
-    bool _initialized;  // Track if begin() has been called for this page
-    bool _isActive;     // Track if this page is currently displayed on Nextion
+    
+    bool _initialized;
+    bool _isActive;
     
     friend class NextionControl;  // Allow NextionControl to access _initialized and _isActive
 };

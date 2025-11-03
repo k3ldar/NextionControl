@@ -45,7 +45,7 @@ const int RefreshTime = 1000;          // ms between periodic updates
 const size_t SerialBufferSize = 256;
 
 /// Timeout (ms) for considering a partial message as aborted when no more bytes arrive.
-const unsigned long SerialTimeout = 800;
+const unsigned long SerialTimeout = 600;
 
 /// Touch event code reported by Nextion for a press.
 const byte EventPress = 1;

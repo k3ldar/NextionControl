@@ -61,9 +61,10 @@ void NextionControl::update(unsigned long now)
 {
     readSerial(now);
     
+    // Optional periodic updates (for other text fields, numbers, etc.)
     if (currentPage && (now - refreshTimer) > RefreshTime)
     {
-        currentPage->refresh();
+        currentPage->refresh(now);
         refreshTimer = now;
     }
 }
@@ -83,6 +84,7 @@ void NextionControl::readSerial(unsigned long now)
         uint8_t b = nextionSerialPort->read();
         
 #ifdef NEXTION_DEBUG
+        // Debug: Print every byte received (helps diagnose startup issues)
         Serial.print("RX: 0x");
         if (b < 0x10) Serial.print("0");
         Serial.print(b, HEX);
@@ -94,6 +96,7 @@ void NextionControl::readSerial(unsigned long now)
         {
             _terminatorCount = 0;
 
+            // Skip leading 0xFF bytes (these are just noise/incomplete terminators)
             if (b == 0xFF) {
 #ifdef NEXTION_DEBUG
                 Serial.println(" (skipped - leading 0xFF)");
@@ -174,6 +177,7 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
     uint8_t cmd = data[0];
 
 #ifdef NEXTION_DEBUG
+    // Debug: Print raw message
     Serial.print("Nextion MSG: 0x");
     if (cmd < 0x10) Serial.print("0");
     Serial.print(cmd, HEX);
@@ -263,6 +267,7 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
                 switchToPageById(pageId);
             }
 
+            // Now handle the touch event (currentPage should be synchronized)
             if (currentPage && currentPage->getPageId() == pageId) {
                 currentPage->handleTouch(compId, eventType);
             }
@@ -431,6 +436,7 @@ bool NextionControl::switchToPageById(uint8_t pageId)
     
     // Deactivate the old page
     if (currentPage) {
+        currentPage->onLeavePage();
         currentPage->_isActive = false;
 #ifdef NEXTION_DEBUG
         Serial.print("  -> Deactivated page ");
@@ -441,6 +447,7 @@ bool NextionControl::switchToPageById(uint8_t pageId)
     // Activate the new page
     currentPage = newPage;
     currentPage->_isActive = true;
+	currentPage->onEnterPage();
     
 #ifdef NEXTION_DEBUG
     Serial.print("  -> Activated page ");
@@ -467,7 +474,7 @@ bool NextionControl::switchToPageById(uint8_t pageId)
 void NextionControl::refreshCurrentPage()
 {
     if (currentPage)
-        currentPage->refresh();
+        currentPage->refresh(millis());
 }
 
 void NextionControl::requestCurrentPage()

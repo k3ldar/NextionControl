@@ -20,6 +20,12 @@ NextionControl::NextionControl(Stream* serialPort, BaseDisplayPage** pageArray, 
     if (pageCount > 0 && pages[0]) {
         currentPage = pages[0];
         currentPage->_isActive = true;
+        
+#ifdef NEXTION_DEBUG
+        Serial.print("NextionControl: Initial page set to page ID ");
+        Serial.print(currentPage->getPageId());
+        Serial.println(" (marked as active)");
+#endif
     }
 }
 
@@ -29,31 +35,16 @@ NextionControl::~NextionControl()
     pages = nullptr;
 }
 
-#ifdef NEXTION_DEBUG
-void NextionControl::setDebugCallback(DebugCallback callback)
-{
-    debugCallback = callback;
-}
-
-void NextionControl::debugLog(const String& message)
-{
-    if (debugCallback)
-    {
-        debugCallback(message);
-    }
-}
-#endif
-
 bool NextionControl::begin()
 {
     // Initialize the first page
-    if (currentPage && !currentPage->_initialized)
-    {
+    if (currentPage && !currentPage->_initialized) {
         currentPage->begin();
         currentPage->_initialized = true;
         
 #ifdef NEXTION_DEBUG
-        debugLog(String(F("NextionControl: Called begin() on page ID ")) + String(currentPage->getPageId()) + String(F(" (marked as active)")));
+        Serial.print("NextionControl: Called begin() on page ID ");
+        Serial.println(currentPage->getPageId());
 #endif
     }
     
@@ -61,7 +52,7 @@ bool NextionControl::begin()
     requestCurrentPage();
     
 #ifdef NEXTION_DEBUG
-    debugLog(String(F("NextionControl initialized. Waiting for Nextion page events...")));
+    Serial.println("NextionControl initialized. Waiting for Nextion page events...");
 #endif
     return true;
 }
@@ -80,9 +71,6 @@ void NextionControl::update(unsigned long now)
 
 void NextionControl::sendCommand(const String& cmd)
 {
-#ifdef NEXTION_DEBUG
-    debugLog(String(F("Sending Command:")) + cmd);
-#endif
     nextionSerialPort->print(cmd);
     nextionSerialPort->write(0xFF);
     nextionSerialPort->write(0xFF);
@@ -96,7 +84,10 @@ void NextionControl::readSerial(unsigned long now)
         uint8_t b = nextionSerialPort->read();
         
 #ifdef NEXTION_DEBUG
-        debugLog(String(F("RX: 0x")) + String(b, HEX) + String(F(" (START of message)")));
+        // Debug: Print every byte received (helps diagnose startup issues)
+        Serial.print("RX: 0x");
+        if (b < 0x10) Serial.print("0");
+        Serial.print(b, HEX);
 #endif
         
         _lastCharTime = millis();
@@ -108,7 +99,7 @@ void NextionControl::readSerial(unsigned long now)
             // Skip leading 0xFF bytes (these are just noise/incomplete terminators)
             if (b == 0xFF) {
 #ifdef NEXTION_DEBUG
-                debugLog(String(F("RX: 0x")) + String(b, HEX) + String(F(" (skipped - leading 0xFF)")));
+                Serial.println(" (skipped - leading 0xFF)");
 #endif
                 continue;
             }
@@ -116,9 +107,14 @@ void NextionControl::readSerial(unsigned long now)
             _readingMessage = true;
             _serialBufferPos = 0;
 #ifdef NEXTION_DEBUG
-            debugLog(String(F("RX: 0x")) + String(b, HEX) + String(F(" (START of message)")));
+            Serial.println(" (START of message)");
 #endif
         }
+#ifdef NEXTION_DEBUG
+        else {
+            Serial.println();  // Just newline for continuing message bytes
+        }
+#endif
 
         if (_serialBufferPos < SerialBufferSize)
         {
@@ -127,7 +123,7 @@ void NextionControl::readSerial(unsigned long now)
         else
         {
 #ifdef NEXTION_DEBUG
-            debugLog(String(F("ERROR: Serial buffer overflow!")));
+            Serial.println("  -> ERROR: Serial buffer overflow!");
 #endif
             _readingMessage = false;
             _serialBufferPos = 0;
@@ -145,7 +141,9 @@ void NextionControl::readSerial(unsigned long now)
             size_t msgLen = _serialBufferPos - 3; // exclude terminator
             
 #ifdef NEXTION_DEBUG
-            debugLog(String(F("Complete message assembled: ")) + String(msgLen) + String(F(" bytes")));
+            Serial.print("  -> Complete message assembled: ");
+            Serial.print(msgLen);
+            Serial.println(" bytes (excluding terminators)");
 #endif
             
             handleNextionMessage(_serialBuffer, msgLen);
@@ -160,7 +158,9 @@ void NextionControl::readSerial(unsigned long now)
     if (_readingMessage && (now - _lastCharTime > SerialTimeout))
     {
 #ifdef NEXTION_DEBUG
-        debugLog(String(F("TIMEOUT: Abandoning incomplete message (")) + String(_serialBufferPos) + String(F(" bytes received)")));
+        Serial.print("  -> TIMEOUT: Abandoning incomplete message (");
+        Serial.print(_serialBufferPos);
+        Serial.println(" bytes received)");
 #endif
         _readingMessage = false;
         _terminatorCount = 0;
@@ -177,14 +177,19 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
     uint8_t cmd = data[0];
 
 #ifdef NEXTION_DEBUG
-    String hexData = String(F("Nextion MSG: 0x")) + String(cmd, HEX) + String(F(" len=")) + String(len) + String(F(" data=["));
+    // Debug: Print raw message
+    Serial.print("Nextion MSG: 0x");
+    if (cmd < 0x10) Serial.print("0");
+    Serial.print(cmd, HEX);
+    Serial.print(" len=");
+    Serial.print(len);
+    Serial.print(" data=[");
     for (size_t i = 0; i < len; i++) {
-        if (i > 0) hexData += String(F(" "));
-        if (data[i] < 0x10) hexData += String(F("0"));
-        hexData += String(data[i], HEX);
+        if (i > 0) Serial.print(" ");
+        if (data[i] < 0x10) Serial.print("0");
+        Serial.print(data[i], HEX);
     }
-    hexData += String(F("]"));
-    debugLog(hexData);
+    Serial.println("]");
 #endif
 
     switch (cmd)
@@ -192,7 +197,7 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
         case 0x01: // Instruction successful
         {
 #ifdef NEXTION_DEBUG
-            debugLog(String(F("  -> Instruction successful")));
+            Serial.println("  -> Instruction successful");
 #endif
             if (currentPage)
                 currentPage->handleCommandResponse(cmd);
@@ -209,7 +214,8 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
         case 0x1C: // Assignment failed
         {
 #ifdef NEXTION_DEBUG
-            debugLog(String(F("  -> Error code: 0x")) + String(cmd, HEX));
+            Serial.print("  -> Error code: 0x");
+            Serial.println(cmd, HEX);
 #endif
             // Forward command execution results to current page
             if (currentPage)
@@ -223,7 +229,7 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
             // Touch event requires at least 4 bytes: [65 pageId compId eventType]
             if (len < 4) {
 #ifdef NEXTION_DEBUG
-                debugLog(String(F("  -> Touch FAILED: message too short")));
+                Serial.println("  -> Touch FAILED: message too short");
 #endif
                 return;
             }
@@ -233,9 +239,21 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
             uint8_t eventType = data[3];
             
 #ifdef NEXTION_DEBUG
-            debugLog(String(F("  -> Touch: page=")) + String(pageId) +
-                String(F(" comp=")) + String(compId) +
-                    String(F(" event=")) + String(eventType == 1 ? String(F("PRESS")) : String(F("RELEASE"))));
+            if (len > 4) {
+                Serial.print("  -> WARNING: Touch event has extra bytes (len=");
+                Serial.print(len);
+                Serial.println("), ignoring extras");
+            }
+
+            Serial.print("  -> Touch: page=");
+            Serial.print(pageId);
+            Serial.print(" comp=");
+            Serial.print(compId);
+            Serial.print(" event=");
+            Serial.print(eventType == 1 ? "PRESS" : "RELEASE");
+            Serial.print(" (currentPage=");
+            Serial.print(currentPage ? currentPage->getPageId() : 255);
+            Serial.println(")");
 #endif
 
             // Defensive synchronization: If touch event is for a different page than our current page,
@@ -243,7 +261,8 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
             // was manually navigated). Synchronize our internal state with the display's actual state.
             if (!currentPage || currentPage->getPageId() != pageId) {
 #ifdef NEXTION_DEBUG
-                debugLog(String(F("  -> SYNC: Touch event indicates page mismatch")));
+                Serial.print("  -> SYNC: Touch event indicates page mismatch");
+                Serial.println();
 #endif
                 switchToPageById(pageId);
             }
@@ -254,7 +273,7 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
             }
 #ifdef NEXTION_DEBUG
             else {
-                debugLog(String(F("  -> Touch IGNORED (page still mismatched after sync attempt)")));
+                Serial.println("  -> Touch IGNORED (page still mismatched after sync attempt)");
             }
 #endif
 
@@ -265,7 +284,7 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
         {
             if (len < 2) {
 #ifdef NEXTION_DEBUG
-                debugLog(String(F("  -> Page change FAILED: message too short")));
+                Serial.println("  -> Page change FAILED: message too short");
 #endif
                 return;
             }
@@ -275,10 +294,13 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
             
 #ifdef NEXTION_DEBUG
             if (len > 2) {
-                debugLog(String(F("  -> Page change to: ")) + String(newPageId));
+                Serial.print("  -> WARNING: Page change message has extra bytes (len=");
+                Serial.print(len);
+                Serial.println("), ignoring extras");
             }
             
-            debugLog(String(F("  -> Page change to: ")) + String(newPageId));
+            Serial.print("  -> Page change to: ");
+            Serial.println(newPageId);
 #endif
             
             // Use centralized page switching logic
@@ -298,9 +320,12 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
             uint8_t eventType = data[5];
 
 #ifdef NEXTION_DEBUG
-            debugLog(String(F("  -> Touch XY: x=")) + String(x) +
-                String(F(" y=")) + String(y) +
-                    String(F(" event=")) + String(eventType));
+            Serial.print("  -> Touch XY: x=");
+            Serial.print(x);
+            Serial.print(" y=");
+            Serial.print(y);
+            Serial.print(" event=");
+            Serial.println(eventType);
 #endif
 
             if (currentPage)
@@ -316,7 +341,9 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
                 text += (char)data[i];
 
 #ifdef NEXTION_DEBUG
-			debugLog(String(F("  -> String: \"")) + text + String(F("\"")));
+            Serial.print("  -> String: \"");
+            Serial.print(text);
+            Serial.println("\"");
 #endif
 
             if (currentPage)
@@ -337,7 +364,8 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
                 (data[4] << 24);
 
 #ifdef NEXTION_DEBUG
-			debugLog(String(F("  -> Numeric: ")) + String(value));
+            Serial.print("  -> Numeric: ");
+            Serial.println(value);
 #endif
 
             if (currentPage)
@@ -350,7 +378,8 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
         case 0x87: // Auto wake from sleep
         {
 #ifdef NEXTION_DEBUG
-			debugLog(String(F("Sleep change: ")) + String(cmd == 0x86 ? String(F("Sleep mode entered")) : String(F("Wake from sleep"))));
+            Serial.print("  -> ");
+            Serial.println(cmd == 0x86 ? "Sleep mode entered" : "Wake from sleep");
 #endif
 
             if (currentPage)
@@ -361,7 +390,7 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
 
         default: // Unhandled Nextion cmd
 #ifdef NEXTION_DEBUG
-			debugLog(String(F("  -> Unhandled Nextion command: 0x")) + String(cmd, HEX));
+            Serial.println("  -> UNHANDLED command");
 #endif
             break;
     }
@@ -381,7 +410,9 @@ bool NextionControl::switchToPageById(uint8_t pageId)
     // Page not found
     if (!newPage) {
 #ifdef NEXTION_DEBUG
-		debugLog(String(F("  -> Page ID ")) + String(pageId) + String(F(" not found in registered pages!")));
+        Serial.print("  -> Page ID ");
+        Serial.print(pageId);
+        Serial.println(" not found in registered pages!");
 #endif
         return false;
     }
@@ -389,14 +420,18 @@ bool NextionControl::switchToPageById(uint8_t pageId)
     // Already on this page
     if (newPage == currentPage) {
 #ifdef NEXTION_DEBUG
-		debugLog(String(F("  -> Already on page ")) + String(pageId));
+        Serial.print("  -> Already on page ");
+        Serial.println(pageId);
 #endif
         return true;
     }
     
     // Switch pages
 #ifdef NEXTION_DEBUG
-	debugLog(String(F("  -> Switching from page ")) + String(currentPage ? currentPage->getPageId() : 255) + String(F("  -> to page ID ")) + String(pageId));
+    Serial.print("  -> Switching from page ");
+    Serial.print(currentPage ? currentPage->getPageId() : 255);
+    Serial.print(" to page ");
+    Serial.println(pageId);
 #endif
     
     // Deactivate the old page
@@ -404,7 +439,8 @@ bool NextionControl::switchToPageById(uint8_t pageId)
         currentPage->onLeavePage();
         currentPage->_isActive = false;
 #ifdef NEXTION_DEBUG
-		debugLog(String(F("  -> Deactivated page ")) + String(currentPage->getPageId()));
+        Serial.print("  -> Deactivated page ");
+        Serial.println(currentPage->getPageId());
 #endif
     }
     
@@ -414,20 +450,21 @@ bool NextionControl::switchToPageById(uint8_t pageId)
 	currentPage->onEnterPage();
     
 #ifdef NEXTION_DEBUG
-	debugLog(String(F("  -> onEnterPage() called for page ")) + String(currentPage->getPageId()));
+    Serial.print("  -> Activated page ");
+    Serial.println(currentPage->getPageId());
 #endif
     
     // Initialize the newly activated page (only if not already initialized)
     if (!currentPage->_initialized) {
 #ifdef NEXTION_DEBUG
-        debugLog(String(F("  -> Calling begin() on new page (first time)")));
+        Serial.println("  -> Calling begin() on new page (first time)");
 #endif
         currentPage->begin();
         currentPage->_initialized = true;
     }
 #ifdef NEXTION_DEBUG
     else {
-        debugLog(String(F("  -> Page already initialized")));
+        Serial.println("  -> Page already initialized");
     }
 #endif
     
@@ -443,9 +480,9 @@ void NextionControl::refreshCurrentPage()
 void NextionControl::requestCurrentPage()
 {
     // Send "sendme" command - Nextion will respond with 0x66 page change message
-    sendCommand(String(F("sendme")));
+    sendCommand("sendme");
     
 #ifdef NEXTION_DEBUG
-    debugLog(String(F("NextionControl: Requested current page from display (sendme)")));
+    Serial.println("NextionControl: Requested current page from display (sendme)");
 #endif
 }

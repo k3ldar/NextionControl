@@ -53,13 +53,6 @@ const byte EventPress = 1;
 /// Touch event code reported by Nextion for a release.
 const byte EventRelease = 0;
 
-
-#ifdef NEXTION_DEBUG
-// Forward declaration for debug callback
-typedef void (*DebugCallback)(const String& message);
-#endif
-
-
 /**
  * @class NextionControl
  * @brief Orchestrates communication and page management for a Nextion display.
@@ -146,24 +139,6 @@ public:
      */
     BaseDisplayPage* getCurrentPage() const { return currentPage; }
 
-#ifdef NEXTION_DEBUG
-    /**
-     * @brief Set debug message callback.
-     *
-     * When NEXTION_DEBUG is enabled, all debug messages will be sent to this callback
-     * instead of directly to Serial. This allows routing debug output through
-     * SerialCommandManager or any other logging mechanism.
-     *
-     * @param callback Function to receive debug messages, or nullptr to disable.
-     *
-     * @example
-     * nextion.setDebugCallback([](const String& msg) {
-     *     commandMgrComputer.sendInfo(msg, F("NEXTION"));
-     * });
-     */
-    void setDebugCallback(DebugCallback callback);
-
-#endif
 private:
     /// @brief Indicates if a message is currently being assembled from the serial stream.
 	bool _readingMessage = false;
@@ -221,16 +196,5 @@ private:
      * @param len  Length of the message payload in bytes.
      */
     void handleNextionMessage(const uint8_t* data, size_t len);
-
-#ifdef NEXTION_DEBUG
-    /// @brief Debug message callback (nullptr if not set).
-    DebugCallback debugCallback = nullptr;
-
-    /**
-     * @brief Send a debug message if callback is configured.
-     * @param message Debug message to send.
-     */
-    void debugLog(const String& message);
-#endif
 };
 

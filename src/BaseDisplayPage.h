@@ -354,7 +354,7 @@ protected:
         
         // Always allow page change commands regardless of active state
         char pageCommand[15];
-		snprintf(pageCommand, sizeof(pageCommand), "page %d", pageId);
+        snprintf(pageCommand, sizeof(pageCommand), "page %d", pageId);
         nextionSerialPort->print(pageCommand);
         endCommand();
 	}

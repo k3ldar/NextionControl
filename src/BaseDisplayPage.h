@@ -308,7 +308,7 @@ protected:
         }
 
         nextionSerialPort->print(cmd);
-		endCommand();
+        endCommand();
     }
 
     /**

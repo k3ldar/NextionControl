@@ -406,7 +406,7 @@ protected:
         if (!nextionSerialPort)
             return;
 
-        if (!nextionSerialPort || !component)
+        if (!component)
             return;
 
         if (!_isActive)

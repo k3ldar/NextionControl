@@ -86,7 +86,8 @@ public:
      * );
      * @endcode
      */
-    virtual void handleExternalUpdate(uint8_t updateType, const void* data) {
+    virtual void handleExternalUpdate(uint8_t updateType, const void* data)
+    {
         (void)updateType;
         (void)data;
         // Default: do nothing - keeps base class generic
@@ -129,7 +130,8 @@ protected:
      * @note The _isActive flag is automatically managed by NextionControl.
      * @note This is called after begin() on first activation, or directly on subsequent activations.
      */
-    virtual void onEnterPage() {
+    virtual void onEnterPage()
+    {
         // Default: do nothing
     }
 
@@ -146,7 +148,8 @@ protected:
      * @note The _isActive flag is automatically managed by NextionControl.
      * @note Sending commands to Nextion components in this method may fail as the page is being deactivated.
      */
-    virtual void onLeavePage() {
+    virtual void onLeavePage()
+    {
         // Default: do nothing
     }
 
@@ -188,7 +191,8 @@ protected:
      * @param eventType Event type: 0x01 = press, 0x00 = release
      * @note Default implementation does nothing. Override to handle touch events.
      */
-    virtual void handleTouch(uint8_t compId, uint8_t eventType) {
+    virtual void handleTouch(uint8_t compId, uint8_t eventType)
+    {
         (void)compId;
         (void)eventType;
     }
@@ -201,7 +205,8 @@ protected:
      * @param text The text string returned from the Nextion display
      * @note Default implementation does nothing. Override to handle text data.
      */
-    virtual void handleText(String text) {
+    virtual void handleText(const char* text)
+    {
         (void)text;
     }
 
@@ -213,7 +218,8 @@ protected:
      * @param responseCode Response code from Nextion (typically 0x01)
      * @note Default implementation does nothing. Override to track command success.
      */
-    virtual void handleCommandResponse(uint8_t responseCode) {
+    virtual void handleCommandResponse(uint8_t responseCode)
+    {
         (void)responseCode;
     }
 
@@ -227,7 +233,8 @@ protected:
      *                     0x1A = invalid variable, 0x1B = invalid operation, 0x1C = assignment failed
      * @note Default implementation does nothing. Override to handle errors.
      */
-    virtual void handleErrorCommandResponse(uint8_t responseCode) {
+    virtual void handleErrorCommandResponse(uint8_t responseCode)
+    {
         (void)responseCode;
     }
 
@@ -241,7 +248,8 @@ protected:
      * @param eventType Event type: 0x67 = awake touch, 0x68 = sleep touch
      * @note Default implementation does nothing. Override for coordinate-based input.
      */
-    virtual void handleTouchXY(uint16_t x, uint16_t y, uint8_t eventType) {
+    virtual void handleTouchXY(uint16_t x, uint16_t y, uint8_t eventType)
+    {
         (void)x;
         (void)y;
         (void)eventType;
@@ -255,7 +263,8 @@ protected:
      * @param value The 32-bit numeric value returned from the Nextion display
      * @note Default implementation does nothing. Override to handle numeric data.
      */
-    virtual void handleNumeric(uint32_t value) {
+    virtual void handleNumeric(uint32_t value)
+    {
         (void)value;
     }
 
@@ -267,7 +276,8 @@ protected:
      * @param entering true if entering sleep mode, false if waking from sleep
      * @note Default implementation does nothing. Override to respond to sleep events.
      */
-    virtual void handleSleepChange(bool entering) {
+    virtual void handleSleepChange(bool entering)
+    {
         (void)entering;
     }
 
@@ -281,8 +291,9 @@ protected:
      * @note Commands sent from inactive pages are ignored (with debug warning).
      * @note Use setPage() if you need to send page change commands from inactive pages.
      */
-    void sendCommand(const String& cmd) {
-        if (!nextionSerialPort)
+    void sendCommand(const char* cmd)
+    {
+        if (!nextionSerialPort || !cmd)
             return;
 
         // Only send commands if this page is currently active
@@ -290,15 +301,14 @@ protected:
 #ifdef NEXTION_DEBUG
             Serial.print("Page ");
             Serial.print(getPageId());
-            Serial.println(" ignoring command (not active): " + cmd);
+            Serial.print(" ignoring command (not active): ");
+            Serial.println(cmd);
 #endif
             return;
         }
 
         nextionSerialPort->print(cmd);
-        nextionSerialPort->write(0xFF);
-        nextionSerialPort->write(0xFF);
-        nextionSerialPort->write(0xFF);
+		endCommand();
     }
 
     /**
@@ -311,11 +321,21 @@ protected:
      * @param value Numeric value to assign
      * @note Only sends if page is active.
      */
-    void setComponentProperty(const String& component, const String& property, int value) {
-        if (!nextionSerialPort)
+    void setComponentProperty(const char* component, const char* property, int value)
+    {
+        if (!nextionSerialPort || !component || !property)
             return;
-        String cmd = component + "." + property + "=" + String(value);
-        sendCommand(cmd);
+
+        if (!_isActive)
+            return;
+
+        // Stream directly: component.property=value
+        nextionSerialPort->print(component);
+        nextionSerialPort->print('.');
+        nextionSerialPort->print(property);
+        nextionSerialPort->print('=');
+        nextionSerialPort->print(value);
+        endCommand();
     }
 
     /**
@@ -327,16 +347,16 @@ protected:
      * @note Unlike other commands, page changes are allowed from any page (active or not).
      * @note This bypasses the normal _isActive check to allow page navigation.
      */
-    void setPage(const uint8_t pageId) {
+    void setPage(const uint8_t pageId)
+    {
         if (!nextionSerialPort)
             return;
         
         // Always allow page change commands regardless of active state
-        String cmd = "page " + String(pageId);
-        nextionSerialPort->print(cmd);
-        nextionSerialPort->write(0xFF);
-        nextionSerialPort->write(0xFF);
-        nextionSerialPort->write(0xFF);
+        char pageCommand[15];
+		snprintf(pageCommand, sizeof(pageCommand), "page %d", pageId);
+        nextionSerialPort->print(pageCommand);
+        endCommand();
 	}
 
     /**
@@ -345,7 +365,8 @@ protected:
      * @param component Component name (e.g., "p0" for a picture box)
      * @param pictureId Picture resource ID from Nextion Editor
      */
-    void setPicture(const String& component, int pictureId) {
+    void setPicture(const char* component, int pictureId)
+    {
         setComponentProperty(component, "pic", pictureId);
     }
 
@@ -355,7 +376,8 @@ protected:
      * @param component Component name
      * @param pictureId Picture resource ID from Nextion Editor
      */
-    void setPicture2(const String& component, int pictureId) {
+    void setPicture2(const char* component, int pictureId)
+    {
         setComponentProperty(component, "pic2", pictureId);
     }
 
@@ -365,7 +387,8 @@ protected:
      * @param component Component name (e.g., "t0" for a text field)
      * @param fontId Font resource ID from Nextion Editor
      */
-    void setFont(const String& component, int fontId) {
+    void setFont(const char* component, int fontId)
+    {
         setComponentProperty(component, "font", fontId);
     }
 
@@ -378,12 +401,22 @@ protected:
      * @param component Component name
      * @param value Numeric value to assign
      */
-    void sendValue(const String& component, int value) {
+    void sendValue(const char* component, int value)
+    {
         if (!nextionSerialPort)
             return;
 
-        String cmd = component + "=" + String(value);
-        sendCommand(cmd);
+        if (!nextionSerialPort || !component)
+            return;
+
+        if (!_isActive)
+            return;
+
+        // Stream directly: component=value
+        nextionSerialPort->print(component);
+        nextionSerialPort->print('=');
+        nextionSerialPort->print(value);
+        endCommand();
     }
 
     /**
@@ -395,12 +428,20 @@ protected:
      * @param text Text string to display
      * @note Text is automatically quoted in the command.
      */
-    void sendText(const String& component, const String& text) {
-        if (!nextionSerialPort)
+    void sendText(const char* component, const char* text)
+    {
+        if (!nextionSerialPort || !component || !text)
             return;
 
-        String cmd = component + ".txt=\"" + text + "\"";
-        sendCommand(cmd);
+        if (!_isActive)
+            return;
+
+        // Stream directly: component.txt="text"
+        nextionSerialPort->print(component);
+        nextionSerialPort->print(F(".txt=\""));
+        nextionSerialPort->print(text);
+        nextionSerialPort->print('"');
+        endCommand();
     }
 
 private:
@@ -408,6 +449,15 @@ private:
     
     bool _initialized;
     bool _isActive;
+
+    void endCommand()
+    {
+        if (!nextionSerialPort)
+            return;
+        nextionSerialPort->write(0xFF);
+        nextionSerialPort->write(0xFF);
+		nextionSerialPort->write(0xFF);
+    }
     
     friend class NextionControl;  // Allow NextionControl to access _initialized and _isActive
 };

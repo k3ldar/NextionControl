@@ -311,16 +311,23 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
 
         case 0x70: // String return
         { 
-            String text;
-            for (size_t i = 1; i < len; ++i)
-                text += (char)data[i];
+            // Build null-terminated C string directly from data buffer
+            char textBuffer[SerialBufferSize];
+            size_t textLen = len - 1; // Exclude the command byte
+
+            // Copy text data (skip first byte which is 0x70)
+            for (size_t i = 0; i < textLen && i < (SerialBufferSize - 1); ++i)
+                textBuffer[i] = (char)data[i + 1];
+
+            // Null-terminate
+            textBuffer[textLen < SerialBufferSize ? textLen : SerialBufferSize - 1] = '\0';
 
 #ifdef NEXTION_DEBUG
 			debugLog(String(F("  -> String: \"")) + text + String(F("\"")));
 #endif
 
             if (currentPage)
-                currentPage->handleText(text);
+                currentPage->handleText(textBuffer);
 
             break;
         }

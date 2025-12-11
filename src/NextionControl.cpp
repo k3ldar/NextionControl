@@ -323,7 +323,7 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
             textBuffer[textLen < SerialBufferSize ? textLen : SerialBufferSize - 1] = '\0';
 
 #ifdef NEXTION_DEBUG
-			debugLog(String(F("  -> String: \"")) + text + String(F("\"")));
+			debugLog(String(F("  -> String: \"")) + textBuffer + String(F("\"")));
 #endif
 
             if (currentPage)

@@ -456,7 +456,7 @@ private:
             return;
         nextionSerialPort->write(0xFF);
         nextionSerialPort->write(0xFF);
-		nextionSerialPort->write(0xFF);
+        nextionSerialPort->write(0xFF);
     }
     
     friend class NextionControl;  // Allow NextionControl to access _initialized and _isActive

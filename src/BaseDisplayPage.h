@@ -1,5 +1,11 @@
 #pragma once
 
+// Helper macro for casting PROGMEM pointers to __FlashStringHelper*
+// Used with static const char arrays stored in PROGMEM
+#ifndef FPSTR
+#define FPSTR(pstr_pointer) (reinterpret_cast<const __FlashStringHelper *>(pstr_pointer))
+#endif
+
 // forward declaration
 class NextionControl;
 
@@ -312,6 +318,36 @@ protected:
     }
 
     /**
+     * @brief Send a raw command to the Nextion display.
+     *
+     * Automatically appends the required 0xFF 0xFF 0xFF terminator sequence.
+     * Commands are only sent if this page is currently active.
+     *
+     * @param cmd Command string (e.g., "t0.txt=\"Hello\"", "n0.val=42")
+     * @note Commands sent from inactive pages are ignored (with debug warning).
+     * @note Use setPage() if you need to send page change commands from inactive pages.
+     */
+    void sendCommand(const __FlashStringHelper* cmd)
+    {
+        if (!nextionSerialPort || !cmd)
+            return;
+
+        // Only send commands if this page is currently active
+        if (!_isActive) {
+#ifdef NEXTION_DEBUG
+            Serial.print("Page ");
+            Serial.print(getPageId());
+            Serial.print(" ignoring command (not active): ");
+            Serial.println(cmd);
+#endif
+            return;
+        }
+
+        nextionSerialPort->print(cmd);
+        endCommand();
+    }
+
+    /**
      * @brief Set a property value on a Nextion component.
      * 
      * Convenience method for setting numeric component properties.
@@ -330,6 +366,32 @@ protected:
             return;
 
         // Stream directly: component.property=value
+        nextionSerialPort->print(component);
+        nextionSerialPort->print('.');
+        nextionSerialPort->print(property);
+        nextionSerialPort->print('=');
+        nextionSerialPort->print(value);
+        endCommand();
+    }
+
+    /**
+     * @brief Set a property value on a Nextion component (both PROGMEM).
+     *
+     * Convenience method for setting numeric component properties with both parameters in PROGMEM.
+     *
+     * @param component Component name stored in PROGMEM
+     * @param property Property name stored in PROGMEM
+     * @param value Numeric value to assign
+     * @note Only sends if page is active.
+     */
+    void setComponentProperty(const __FlashStringHelper* component, const __FlashStringHelper* property, int value)
+    {
+        if (!nextionSerialPort || !component || !property)
+            return;
+
+        if (!_isActive)
+            return;
+
         nextionSerialPort->print(component);
         nextionSerialPort->print('.');
         nextionSerialPort->print(property);
@@ -420,6 +482,28 @@ protected:
     }
 
     /**
+     * @brief Set a numeric value on a component (PROGMEM version).
+     *
+     * Convenience method for setting the value attribute with component name in PROGMEM.
+     *
+     * @param component Component name stored in PROGMEM (use F() macro)
+     * @param value Numeric value to assign
+     */
+    void sendValue(const __FlashStringHelper* component, int value)
+    {
+        if (!nextionSerialPort || !component)
+            return;
+
+        if (!_isActive)
+            return;
+
+        nextionSerialPort->print(component);
+        nextionSerialPort->print('=');
+        nextionSerialPort->print(value);
+        endCommand();
+    }
+
+    /**
      * @brief Set the text attribute of a component.
      * 
      * Convenience method for updating text in text fields, buttons, etc.
@@ -437,6 +521,61 @@ protected:
             return;
 
         // Stream directly: component.txt="text"
+        nextionSerialPort->print(component);
+        nextionSerialPort->print(F(".txt=\""));
+        nextionSerialPort->print(text);
+        nextionSerialPort->print('"');
+        endCommand();
+    }
+
+    /**
+     * @brief Set the text attribute of a component (PROGMEM component name).
+     *
+     * Convenience method for updating text with component name in PROGMEM.
+     *
+     * @param component Component name stored in PROGMEM (use F() macro)
+     * @param text Text string to display (RAM)
+     * @note Text is automatically quoted in the command.
+     */
+    void sendText(const __FlashStringHelper* component, const char* text)
+    {
+        if (!nextionSerialPort || !component || !text)
+            return;
+
+        if (!_isActive)
+            return;
+
+        Serial.print("a.Sending text to component : ");
+        Serial.println(component);
+        Serial.print("Text: ");
+        Serial.println(text);
+        nextionSerialPort->print(component);
+        nextionSerialPort->print(F(".txt=\""));
+        nextionSerialPort->print(text);
+        nextionSerialPort->print('"');
+        endCommand();
+    }
+
+    /**
+     * @brief Set the text attribute of a component (both PROGMEM).
+     *
+     * Convenience method for updating text with both parameters in PROGMEM.
+     *
+     * @param component Component name stored in PROGMEM
+     * @param text Text string stored in PROGMEM
+     * @note Text is automatically quoted in the command.
+     */
+    void sendText(const __FlashStringHelper* component, const __FlashStringHelper* text)
+    {
+        if (!nextionSerialPort || !component || !text)
+            return;
+
+        if (!_isActive)
+            return;
+		Serial.print("b.Sending text to component: ");
+		Serial.println(component);
+		Serial.print("Text: ");
+		Serial.println(text);
         nextionSerialPort->print(component);
         nextionSerialPort->print(F(".txt=\""));
         nextionSerialPort->print(text);

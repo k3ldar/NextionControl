@@ -269,7 +269,7 @@ protected:
      * @param value The 32-bit numeric value returned from the Nextion display
      * @note Default implementation does nothing. Override to handle numeric data.
      */
-    virtual void handleNumeric(uint32_t value)
+    virtual void handleNumeric(int32_t value)
     {
         (void)value;
     }
@@ -357,7 +357,7 @@ protected:
      * @param value Numeric value to assign
      * @note Only sends if page is active.
      */
-    void setComponentProperty(const char* component, const char* property, int value)
+    void setComponentProperty(const char* component, const char* property, int32_t value)
     {
         if (!nextionSerialPort || !component || !property)
             return;
@@ -384,7 +384,7 @@ protected:
      * @param value Numeric value to assign
      * @note Only sends if page is active.
      */
-    void setComponentProperty(const __FlashStringHelper* component, const __FlashStringHelper* property, int value)
+    void setComponentProperty(const __FlashStringHelper* component, const __FlashStringHelper* property, int32_t value)
     {
         if (!nextionSerialPort || !component || !property)
             return;
@@ -427,7 +427,7 @@ protected:
      * @param component Component name (e.g., "p0" for a picture box)
      * @param pictureId Picture resource ID from Nextion Editor
      */
-    void setPicture(const char* component, int pictureId)
+    void setPicture(const char* component, int32_t pictureId)
     {
         setComponentProperty(component, "pic", pictureId);
     }
@@ -438,7 +438,7 @@ protected:
      * @param component Component name
      * @param pictureId Picture resource ID from Nextion Editor
      */
-    void setPicture2(const char* component, int pictureId)
+    void setPicture2(const char* component, int32_t pictureId)
     {
         setComponentProperty(component, "pic2", pictureId);
     }
@@ -449,7 +449,7 @@ protected:
      * @param component Component name (e.g., "t0" for a text field)
      * @param fontId Font resource ID from Nextion Editor
      */
-    void setFont(const char* component, int fontId)
+    void setFont(const char* component, int32_t fontId)
     {
         setComponentProperty(component, "font", fontId);
     }
@@ -463,7 +463,7 @@ protected:
      * @param component Component name
      * @param value Numeric value to assign
      */
-    void sendValue(const char* component, int value)
+    void sendValue(const char* component, int32_t value)
     {
         if (!nextionSerialPort)
             return;
@@ -489,7 +489,7 @@ protected:
      * @param component Component name stored in PROGMEM (use F() macro)
      * @param value Numeric value to assign
      */
-    void sendValue(const __FlashStringHelper* component, int value)
+    void sendValue(const __FlashStringHelper* component, int32_t value)
     {
         if (!nextionSerialPort || !component)
             return;

@@ -20,7 +20,7 @@
  * 
  * To enable debug output, uncomment the following line:
  */
-// #define NEXTION_DEBUG
+ // #define NEXTION_DEBUG
 
 /**
  * @file NextionControl.h

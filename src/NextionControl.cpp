@@ -337,11 +337,10 @@ void NextionControl::handleNextionMessage(const uint8_t* data, size_t len)
             if (len < 5)
                 return;
 
-            // Convert 4 bytes to 32-bit value (little endian)
-            uint32_t value = data[1] |
-                (data[2] << 8) |
-                (data[3] << 16) |
-                (data[4] << 24);
+            int32_t value = (uint32_t)data[1] |
+                ((int32_t)data[2] << 8) |
+                (int32_t)data[3] << 16) |
+                ((int32_t)data[4] << 24);
 
 #ifdef NEXTION_DEBUG
 			debugLog(String(F("  -> Numeric: ")) + String(value));
